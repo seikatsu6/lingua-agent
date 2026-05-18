@@ -271,7 +271,7 @@ const MODE = 'kaggle';
 
 // !!! ЗАМЕНИ на свой Kaggle API URL (вид https://xxxxxxxx.gradio.live)
 // (берётся из вывода последней ячейки ноутбука; см. инструкцию ниже)
-const KAGGLE_API_URL = 'https://investor-sip-gem-condo.trycloudflare.com';
+const KAGGLE_API_URL = 'https://began-mixer-lafayette-convenience.trycloudflare.com';
 
 // ── ЯЗЫК UI И NPC ─────────────────────────────────────
 const LANG = 'ru';     // 'en' — английский (хакатон), 'ru' — русский (для теста)
@@ -561,8 +561,18 @@ function speak(text,cb){
   synth.speak(u);
 }
 
-// ── STT ───────────────────────────────────────────────
-function initSpeech(){
+// ── STT (audio direct to Gemma 4) ─────────────────────
+// MediaRecorder пишет голос → отправляем WAV в /api/predict_audio
+// Gemma 4 E4B мультимодальная, понимает речь напрямую без отдельного STT
+let mediaRec=null, audioChunks=[], audioStream=null;
+const USE_GEMMA_AUDIO = (MODE === 'kaggle');   // только для kaggle backend
+
+async function initSpeech(){
+  if (USE_GEMMA_AUDIO) {
+    // MediaRecorder инициализируется лениво при первом старте записи
+    return;
+  }
+  // Fallback: Web Speech API
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return;
   recog=new SR();
@@ -577,18 +587,118 @@ function toggleMic(){
   if(listening){stopListen();return;}
   startListen();
 }
-function startListen(){
-  if(!recog||thinking||done)return;
+
+async function startListen(){
+  if(thinking||done)return;
   stopTimer(); synth.cancel();
   listening=true;
   document.getElementById('micBtn').className='mic-btn on';
   document.getElementById('hintTxt').textContent='🔴 Слушаю...';
-  try{recog.start();}catch{stopListen();}
+
+  if (USE_GEMMA_AUDIO) {
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      // MediaRecorder сам выберет лучший поддерживаемый формат
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+      else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';  // Safari iOS
+      mediaRec = new MediaRecorder(audioStream, { mimeType });
+      mediaRec.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRec.onstop = async () => {
+        audioStream.getTracks().forEach(t => t.stop());
+        if (audioChunks.length === 0) return;
+        const blob = new Blob(audioChunks, { type: mimeType });
+        processAudio(blob);
+      };
+      mediaRec.start();
+    } catch (e) {
+      console.error('Mic error', e);
+      document.getElementById('hintTxt').textContent='Ошибка доступа к микрофону';
+      stopListen();
+    }
+  } else {
+    if(!recog){ stopListen(); return; }
+    try{recog.start();}catch{stopListen();}
+  }
 }
+
 function stopListen(){
   listening=false;
   document.getElementById('micBtn').className='mic-btn';
-  try{recog.stop();}catch{}
+  if (USE_GEMMA_AUDIO) {
+    if (mediaRec && mediaRec.state !== 'inactive') {
+      try { mediaRec.stop(); } catch {}
+    }
+  } else {
+    try{recog.stop();}catch{}
+  }
+}
+
+// ── Отправка аудио в Gemma 4 напрямую ──────────────────
+async function processAudio(audioBlob) {
+  if(thinking||done)return;
+  const s = mission.steps[stepIdx];
+  thinking=true;
+  setNPC('...',true);
+  document.getElementById('micBtn').className='mic-btn off';
+  document.getElementById('txtInp').disabled=true;
+
+  // Затычка
+  let fillerSpoken = false;
+  if (USE_FILLERS) {
+    const pool = FILLERS[LANG] || FILLERS.en;
+    const filler = pool[Math.floor(Math.random()*pool.length)];
+    try {
+      const fu = new SpeechSynthesisUtterance(filler);
+      fu.lang = (LANG === 'ru') ? 'ru-RU' : 'en-GB';
+      fu.rate = 0.95;
+      fu.onstart = () => { fillerSpoken = true; document.getElementById('npcWrap').classList.add('speaking'); };
+      fu.onend = () => document.getElementById('npcWrap').classList.remove('speaking');
+      synth.speak(fu);
+    } catch(_){}
+  }
+
+  try {
+    let sys = s.sys;
+    if (LANG === 'ru') sys += '\n\nIMPORTANT: ALWAYS reply in Russian, never in English. Stay in role.';
+    const fd = new FormData();
+    fd.append('audio', audioBlob, 'recording.webm');
+    fd.append('system', sys);
+    fd.append('history', JSON.stringify(msgs));
+    fd.append('max_tokens', '150');
+
+    const res = await fetch(KAGGLE_API_URL.replace(/\/+$/, '') + '/api/predict_audio', {
+      method: 'POST',
+      body: fd
+    });
+    const data = await res.json();
+    const reply = data.text || data.error || '...';
+
+    if (fillerSpoken) synth.cancel();
+
+    // мы не знаем что именно сказал пользователь (Gemma не возвращает transcription)
+    // показываем заглушку "🎙️ [voice message]" в истории
+    const userPlaceholder = LANG === 'ru' ? '🎙️ [голос]' : '🎙️ [voice]';
+    msgs.push({role:'user', content: userPlaceholder});
+    msgs.push({role:'assistant', content: reply});
+    addBubble('user', '🎙', userPlaceholder);
+    setNPC(reply, false);
+    addBubble('npc', s.npc.av[0]||'N', reply);
+    speak(reply, ()=>{
+      thinking=false;
+      document.getElementById('micBtn').className='mic-btn';
+      document.getElementById('txtInp').disabled=false;
+      turn++;
+      if(!done) startTimer();
+    });
+  } catch (e) {
+    console.error('Audio API error', e);
+    thinking=false;
+    setNPC('[Network error: '+e.message+']', false);
+    document.getElementById('micBtn').className='mic-btn';
+    document.getElementById('txtInp').disabled=false;
+  }
 }
 
 // ── TIMER ─────────────────────────────────────────────
@@ -657,6 +767,7 @@ async function process(text){
 
   try{
     let sys=s.sys;
+    if (LANG === 'ru') sys += '\n\nIMPORTANT: ALWAYS reply in Russian, never in English. Stay in role.';
     if(esc)sys+=`\n\n[NOW: ${esc.inj}]`;
     const reply=await callLLM(sys,msgs,150)||'...';
     // если затычка ещё говорит — даём ей закончиться, потом перебиваем реальным ответом
