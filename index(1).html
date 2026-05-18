@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LinguaAgent — Говори. Выживай. Учись.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;700;900&family=Martian+Mono:wght@300;400;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --void:#050508;--surface:#0d0d14;--panel:#13131e;--line:#1e1e2e;
+  --accent:#e8ff47;--red:#ff3b3b;--blue:#3b9eff;--green:#3bff8a;
+  --muted:#4a4a6a;--text:#e8e8f0;--dim:#8888aa;
+  --ff:'Unbounded',sans-serif;--fm:'Martian Mono',monospace;
+}
+html,body{height:100%;background:var(--void);color:var(--text);overflow:hidden;font-family:var(--ff);}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);pointer-events:none;z-index:9999;}
+#app{height:100vh;display:flex;flex-direction:column;}
+
+/* ── SELECT ── */
+#screen-select{flex:1;display:flex;flex-direction:column;padding:28px 36px;overflow-y:auto;}
+.sel-header{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:24px;}
+.sel-logo{font-size:clamp(24px,3.5vw,42px);font-weight:900;letter-spacing:-.02em;line-height:.9;color:var(--accent);}
+.sel-logo span{display:block;font-size:.3em;font-family:var(--fm);font-weight:300;color:var(--muted);letter-spacing:.2em;margin-top:5px;}
+.sel-status{font-family:var(--fm);font-size:11px;color:var(--muted);text-align:right;line-height:1.9;}
+.sel-status strong{color:var(--accent);}
+.sel-intro{font-family:var(--fm);font-size:11px;color:var(--dim);line-height:1.7;max-width:580px;margin-bottom:28px;border-left:2px solid var(--accent);padding-left:14px;}
+.missions-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;}
+.mission-card{background:var(--panel);border:1px solid var(--line);padding:18px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;}
+.mission-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(232,255,71,.05),transparent 55%);opacity:0;transition:opacity .18s;}
+.mission-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+.mission-card:hover::before{opacity:1;}
+.mission-card.locked{opacity:.32;cursor:not-allowed;}
+.mission-card.locked:hover{border-color:var(--line);transform:none;}
+.mc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.mc-icon{font-size:28px;}
+.mc-tags{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;}
+.mc-tag{font-family:var(--fm);font-size:9px;padding:2px 6px;border:1px solid;letter-spacing:.07em;}
+.tag-a2{color:#3bff8a;border-color:rgba(59,255,138,.3);}
+.tag-b1{color:#3b9eff;border-color:rgba(59,158,255,.3);}
+.tag-b2{color:#e8ff47;border-color:rgba(232,255,71,.3);}
+.tag-chain{color:#ff8c3b;border-color:rgba(255,140,59,.3);}
+.tag-done{color:var(--muted);border-color:var(--muted);}
+.mc-title{font-size:15px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px;}
+.mc-loc{font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:.06em;margin-bottom:8px;}
+.mc-goal{font-size:11px;color:var(--dim);line-height:1.5;}
+.mc-footer{display:flex;justify-content:space-between;margin-top:12px;padding-top:8px;border-top:1px solid var(--line);}
+.mc-steps,.mc-mins{font-family:var(--fm);font-size:9px;color:var(--muted);}
+.mc-lock{font-size:13px;position:absolute;top:12px;right:12px;color:var(--muted);}
+.mc-done{position:absolute;bottom:10px;right:10px;font-family:var(--fm);font-size:8px;letter-spacing:.14em;color:var(--green);border:1px solid rgba(59,255,138,.3);padding:2px 5px;transform:rotate(-3deg);}
+
+/* ── BRIEFING ── */
+#screen-brief{flex:1;display:flex;align-items:center;justify-content:center;padding:36px;}
+.brief-wrap{max-width:520px;width:100%;}
+.brief-dots{display:flex;gap:5px;margin-bottom:18px;}
+.bd{flex:1;height:3px;background:var(--line);}
+.bd.done{background:var(--green);}
+.bd.active{background:var(--accent);}
+.brief-eyebrow{font-family:var(--fm);font-size:9px;color:var(--accent);letter-spacing:.2em;margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+.brief-eyebrow::before{content:'';flex:1;height:1px;background:var(--accent);opacity:.3;}
+.brief-title{font-size:clamp(22px,3.5vw,36px);font-weight:900;letter-spacing:-.02em;margin-bottom:4px;}
+.brief-loc{font-family:var(--fm);font-size:10px;color:var(--muted);letter-spacing:.1em;margin-bottom:24px;}
+.brief-blocks{display:flex;flex-direction:column;gap:8px;margin-bottom:22px;}
+.bb{background:var(--panel);border:1px solid var(--line);padding:12px 14px;display:flex;gap:10px;}
+.bb-lbl{font-family:var(--fm);font-size:8px;color:var(--muted);letter-spacing:.14em;width:56px;flex-shrink:0;padding-top:2px;}
+.bb-val{font-size:12px;color:var(--text);line-height:1.5;}
+.bb-val strong{color:var(--accent);}
+.brief-rules{font-family:var(--fm);font-size:10px;color:var(--dim);line-height:1.9;border-left:2px solid var(--red);padding-left:12px;margin-bottom:24px;}
+.brief-rules b{color:var(--red);}
+.brief-btn{width:100%;background:var(--accent);color:var(--void);border:none;padding:14px;font-family:var(--ff);font-size:13px;font-weight:700;letter-spacing:.05em;cursor:pointer;transition:all .15s;}
+.brief-btn:hover{background:#f0ff6a;transform:translateY(-1px);}
+
+/* ── SCENE ── */
+#screen-scene{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.scene-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;background:rgba(5,5,8,.85);border-bottom:1px solid var(--line);flex-shrink:0;}
+.sh-loc{font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:.07em;}
+.sh-step{font-family:var(--fm);font-size:9px;color:var(--accent);}
+.sh-end{font-family:var(--fm);font-size:9px;color:var(--red);background:none;border:1px solid rgba(255,59,59,.3);padding:4px 9px;cursor:pointer;letter-spacing:.07em;transition:all .15s;}
+.sh-end:hover{background:rgba(255,59,59,.12);}
+
+.npc-zone{flex:0 0 42%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;border-bottom:2px solid var(--line);position:relative;}
+.npc-av-wrap{position:relative;margin-bottom:12px;}
+.npc-av{width:72px;height:72px;background:var(--panel);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:28px;position:relative;}
+.npc-av::after{content:'';position:absolute;inset:-6px;border:1px solid var(--accent);opacity:.25;}
+.npc-ring{position:absolute;inset:-12px;border:2px solid var(--accent);opacity:0;transition:opacity .3s;}
+.npc-ring2{position:absolute;inset:-20px;border:1px solid var(--accent);opacity:0;transition:opacity .3s;}
+.speaking .npc-ring{opacity:.6;animation:ring 1s ease-in-out infinite;}
+.speaking .npc-ring2{opacity:.3;animation:ring 1s ease-in-out infinite .3s;}
+@keyframes ring{0%,100%{transform:scale(1);}50%{transform:scale(1.04);}}
+.npc-name{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--muted);margin-bottom:5px;}
+.npc-bubble{max-width:480px;text-align:center;font-size:clamp(12px,1.8vw,15px);line-height:1.6;color:var(--text);min-height:48px;}
+.npc-bubble.dim{color:var(--muted);}
+
+.timer-wrap{height:4px;background:var(--line);flex-shrink:0;}
+.timer-fill{height:100%;background:var(--accent);transition:width .1s linear,background .3s;}
+.timer-fill.hot{background:var(--red);}
+
+.user-zone{flex:1;display:flex;flex-direction:column;padding:14px 20px;gap:10px;overflow:hidden;}
+.transcript{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:7px;scrollbar-width:none;}
+.transcript::-webkit-scrollbar{display:none;}
+.tr-msg{display:flex;gap:7px;max-width:82%;animation:msgIn .2s ease forwards;opacity:0;}
+@keyframes msgIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:none;}}
+.tr-msg.user{align-self:flex-end;flex-direction:row-reverse;animation-name:msgInR;}
+@keyframes msgInR{from{opacity:0;transform:translateX(6px);}to{opacity:1;transform:none;}}
+.tr-av{width:24px;height:24px;flex-shrink:0;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--fm);font-size:8px;color:var(--muted);align-self:flex-end;}
+.tr-msg.npc .tr-av{border-color:var(--accent);color:var(--accent);}
+.tr-msg.user .tr-av{border-color:var(--blue);color:var(--blue);}
+.tr-text{font-size:12px;line-height:1.55;padding:7px 11px;background:var(--panel);border:1px solid var(--line);}
+.tr-msg.user .tr-text{background:rgba(59,158,255,.07);border-color:rgba(59,158,255,.2);}
+.esc-flag{align-self:stretch;background:rgba(232,255,71,.05);border:1px solid rgba(232,255,71,.2);border-left:3px solid var(--accent);padding:6px 11px;font-family:var(--fm);font-size:9px;color:var(--accent);letter-spacing:.06em;animation:msgIn .25s ease forwards;opacity:0;}
+
+.hint-row{display:flex;align-items:center;gap:8px;}
+.hint-txt{flex:1;font-family:var(--fm);font-size:10px;color:var(--blue);transition:opacity .3s;min-height:16px;}
+.hint-btn{background:none;border:1px solid rgba(59,158,255,.3);color:var(--blue);font-family:var(--fm);font-size:9px;padding:3px 8px;cursor:pointer;letter-spacing:.06em;transition:all .15s;flex-shrink:0;}
+.hint-btn:hover{background:rgba(59,158,255,.1);}
+
+.voice-row{display:flex;gap:9px;align-items:center;}
+.mic-btn{width:58px;height:58px;flex-shrink:0;background:var(--panel);border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-size:22px;}
+.mic-btn.on{border-color:var(--red);background:rgba(255,59,59,.1);animation:micP .8s ease-in-out infinite;}
+@keyframes micP{0%,100%{box-shadow:0 0 0 0 rgba(255,59,59,.4);}50%{box-shadow:0 0 0 10px rgba(255,59,59,0);}}
+.mic-btn.off{opacity:.3;cursor:not-allowed;}
+.mic-btn:not(.on):not(.off):hover{border-color:var(--accent);}
+.txt-wrap{flex:1;position:relative;}
+.txt-inp{width:100%;background:var(--panel);border:1px solid var(--line);padding:9px 42px 9px 12px;font-family:var(--ff);font-size:12px;color:var(--text);outline:none;transition:border-color .15s;}
+.txt-inp::placeholder{color:var(--muted);}
+.txt-inp:focus{border-color:rgba(232,255,71,.35);}
+.txt-inp:disabled{opacity:.4;}
+.txt-send{position:absolute;right:0;top:0;bottom:0;background:var(--accent);color:var(--void);border:none;padding:0 13px;cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:600;transition:background .15s;}
+.txt-send:hover{background:#f0ff6a;}
+
+/* ── FEEDBACK ── */
+#screen-feedback{flex:1;overflow-y:auto;padding:28px 36px;}
+.fb-hdr{border-bottom:2px solid var(--line);padding-bottom:14px;margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between;}
+.fb-title{font-size:clamp(26px,3.5vw,40px);font-weight:900;letter-spacing:-.02em;}
+.fb-score{font-size:clamp(32px,4.5vw,50px);font-weight:900;line-height:1;text-align:right;}
+.fb-slbl{font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:.1em;text-align:right;}
+.fb-sum{border-left:3px solid var(--green);padding:10px 14px;background:rgba(59,255,138,.04);margin-bottom:16px;font-size:12px;line-height:1.6;}
+.gpill{display:inline-block;font-family:var(--fm);font-size:8px;padding:3px 8px;letter-spacing:.1em;margin-bottom:7px;}
+.gpill.y{background:rgba(59,255,138,.14);color:var(--green);border:1px solid rgba(59,255,138,.3);}
+.gpill.n{background:rgba(255,59,59,.1);color:var(--red);border:1px solid rgba(255,59,59,.3);}
+.fb-sec{font-family:var(--fm);font-size:10px;letter-spacing:.14em;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:5px;margin:16px 0 10px;}
+.mk{border:1px solid var(--line);border-left:3px solid var(--red);padding:10px 12px;margin-bottom:7px;background:var(--panel);}
+.mk-said{font-family:var(--fm);font-size:9px;color:var(--muted);margin-bottom:4px;}
+.mk-said em{color:var(--red);font-style:normal;}
+.mk-issue{font-size:12px;color:var(--text);margin-bottom:5px;}
+.mk-better{font-family:var(--fm);font-size:10px;color:var(--green);background:rgba(59,255,138,.05);border:1px solid rgba(59,255,138,.2);padding:4px 8px;margin-bottom:4px;}
+.mk-why{font-size:10px;color:var(--dim);}
+.gd{border:1px solid var(--line);border-left:3px solid var(--green);padding:9px 12px;margin-bottom:7px;background:var(--panel);}
+.gd-said{font-family:var(--fm);font-size:10px;color:var(--green);margin-bottom:3px;}
+.gd-why{font-size:11px;color:var(--dim);}
+.ph-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:5px;}
+.ph{background:var(--panel);border:1px solid var(--line);padding:11px;}
+.ph-en{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:2px;}
+.ph-ru{font-family:var(--fm);font-size:8px;color:var(--muted);margin-bottom:7px;letter-spacing:.06em;}
+.ph-ex{font-size:10px;color:var(--dim);line-height:1.5;font-style:italic;border-top:1px solid var(--line);padding-top:6px;}
+.next-box{border:1px solid var(--accent);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:18px;background:rgba(232,255,71,.03);}
+.nb-lbl{font-family:var(--fm);font-size:8px;color:var(--muted);letter-spacing:.14em;margin-bottom:3px;}
+.nb-ttl{font-size:14px;font-weight:700;}
+.nb-reason{font-size:10px;color:var(--dim);margin-top:2px;}
+.nb-btn{background:var(--accent);color:var(--void);border:none;font-family:var(--fm);font-size:9px;font-weight:600;letter-spacing:.08em;padding:9px 16px;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.nb-btn:hover{background:#f0ff6a;}
+.fb-acts{display:flex;gap:7px;margin-top:12px;}
+.fb-act{flex:1;border:1px solid var(--line);padding:9px;background:none;font-family:var(--fm);font-size:10px;letter-spacing:.05em;color:var(--dim);cursor:pointer;transition:all .15s;}
+.fb-act:hover{border-color:var(--accent);color:var(--accent);}
+
+/* loading */
+#loading{position:fixed;inset:0;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;transition:opacity .5s;}
+#loading.out{opacity:0;pointer-events:none;}
+.ld-logo{font-size:clamp(36px,7vw,72px);font-weight:900;letter-spacing:-.03em;color:var(--accent);line-height:.88;margin-bottom:8px;}
+.ld-sub{font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:.24em;margin-bottom:36px;}
+.ld-bar{width:180px;height:2px;background:var(--line);overflow:hidden;}
+.ld-fill{height:100%;background:var(--accent);animation:ldf 1.2s ease forwards;}
+@keyframes ldf{from{width:0}to{width:100%}}
+.hidden{display:none!important;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--line);}
+</style>
+</head>
+<body>
+<div id="loading">
+  <div class="ld-logo">LINGUA<br>AGENT</div>
+  <div class="ld-sub">ISO-IMMERSION · v2.0</div>
+  <div class="ld-bar"><div class="ld-fill"></div></div>
+</div>
+
+<div id="app">
+
+  <!-- SELECT -->
+  <div id="screen-select" class="hidden">
+    <div class="sel-header">
+      <div class="sel-logo">LINGUA<br>AGENT<span>ГОВОРИ · ВЫЖИВАЙ · УЧИСЬ</span></div>
+      <div class="sel-status">
+        Очки: <strong id="stScore">0</strong><br>
+        Уровень: <strong id="stLevel">A2</strong><br>
+        Стрик: <strong id="stStreak">0</strong> дн.
+      </div>
+    </div>
+    <div class="sel-intro">
+      Ты попадаешь в реальную ситуацию. Агент не выходит из роли.<br>
+      <strong style="color:var(--accent)">Микрофон — основной ввод.</strong> У тебя 8 секунд на ответ.
+    </div>
+    <div class="missions-grid" id="missionsGrid"></div>
+  </div>
+
+  <!-- BRIEFING -->
+  <div id="screen-brief" class="hidden">
+    <div class="brief-wrap">
+      <div class="brief-dots" id="briefDots"></div>
+      <div class="brief-eyebrow">БРИФИНГ МИССИИ</div>
+      <div class="brief-title" id="briefTitle">—</div>
+      <div class="brief-loc" id="briefLoc">—</div>
+      <div class="brief-blocks" id="briefBlocks"></div>
+      <div class="brief-rules">
+        <b>⚠</b> Агент не выйдет из роли.<br>
+        <b>⚠</b> Ошибки не объясняются — только реакция в роли.<br>
+        <b>⚠</b> У тебя <strong style="color:var(--accent)">8 секунд</strong> на ответ.<br>
+        <b>⚠</b> Разбор — после сцены.
+      </div>
+      <button class="brief-btn" id="briefBtn">▶ НАЧАТЬ</button>
+    </div>
+  </div>
+
+  <!-- SCENE -->
+  <div id="screen-scene" class="hidden">
+    <div class="scene-hdr">
+      <div class="sh-loc" id="shLoc">—</div>
+      <div class="sh-step" id="shStep">—</div>
+      <button class="sh-end" onclick="endScene()">■ ЗАВЕРШИТЬ</button>
+    </div>
+    <div class="npc-zone">
+      <div class="npc-av-wrap" id="npcWrap">
+        <div class="npc-ring"></div><div class="npc-ring2"></div>
+        <div class="npc-av" id="npcAv">👤</div>
+      </div>
+      <div class="npc-name" id="npcName">—</div>
+      <div class="npc-bubble" id="npcBubble">...</div>
+    </div>
+    <div class="timer-wrap"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+    <div class="user-zone">
+      <div class="transcript" id="transcript"></div>
+      <div class="hint-row">
+        <div class="hint-txt" id="hintTxt">Нажми 🎤 и говори по-английски</div>
+        <button class="hint-btn" onclick="getHint()">подсказка</button>
+      </div>
+      <div class="voice-row">
+        <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎤</button>
+        <div class="txt-wrap">
+          <input class="txt-inp" id="txtInp" placeholder="или печатай здесь..." onkeydown="if(event.key==='Enter')sendText()"/>
+          <button class="txt-send" onclick="sendText()">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEEDBACK -->
+  <div id="screen-feedback" class="hidden">
+    <div id="fbContent"><div style="padding:40px;text-align:center;font-family:var(--fm);font-size:11px;color:var(--muted)">АНАЛИЗИРУЮ...</div></div>
+  </div>
+
+</div>
+
+<script>
+// ── BACKEND CONFIG ────────────────────────────────────
+// Переключай MODE для смены бэкенда:
+// 'kaggle'  → наш fine-tuned Gemma 4 E4B через Kaggle ноутбук (PRIMARY)
+// 'claude'  → Anthropic API (для разработки)
+// 'ollama'  → локальная Gemma 4 через Ollama (offline-режим)
+// 'gemini'  → Google AI Studio API (резерв)
+const MODE = 'kaggle';
+
+// !!! ЗАМЕНИ на свой Kaggle API URL (вид https://xxxxxxxx.gradio.live)
+// (берётся из вывода последней ячейки ноутбука; см. инструкцию ниже)
+const KAGGLE_API_URL = 'https://investor-sip-gem-condo.trycloudflare.com';
+
+// ── ЯЗЫК UI И NPC ─────────────────────────────────────
+const LANG = 'ru';     // 'en' — английский (хакатон), 'ru' — русский (для теста)
+
+// ── ЗАТЫЧКИ во время ожидания ответа модели ───────────
+const FILLERS = {
+  en: ["Hmm…", "Right…", "Let me see…", "One moment…", "Okay…", "Just a sec…"],
+  ru: ["Хм…", "Так…", "Секунду…", "Минутку…", "Понятно…", "Угу…"]
+};
+const USE_FILLERS = true;
+
+const BACKENDS = {
+  kaggle: {
+    url: KAGGLE_API_URL.replace(/\/+$/, '') + '/api/predict',
+    model: 'gemma-4-E4B-it (LoRA fine-tune)',
+    headers: { 'Content-Type': 'application/json' },
+    buildBody: (sys, msgs, maxTok) => JSON.stringify({
+      system: sys,
+      messages: msgs,
+      max_tokens: maxTok
+    }),
+    extractText: (data) => data.text || data.error || '',
+  },
+  claude: {
+    url: 'https://api.anthropic.com/v1/messages',
+    model: 'claude-sonnet-4-20250514',
+    headers: { 'Content-Type': 'application/json' },
+    buildBody: (sys, msgs, maxTok) => JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: maxTok, system: sys, messages: msgs }),
+    extractText: (data) => data.content?.find(b => b.type === 'text')?.text || '',
+  },
+  ollama: {
+    url: 'http://localhost:11434/api/chat',
+    model: 'lingua-agent',  // имя модели после: ollama create lingua-agent -f Modelfile
+    headers: { 'Content-Type': 'application/json' },
+    buildBody: (sys, msgs, maxTok) => JSON.stringify({
+      model: 'lingua-agent',
+      stream: false,
+      options: { temperature: 0.7, top_p: 0.9, num_predict: maxTok },
+      messages: [{ role: 'system', content: sys }, ...msgs]
+    }),
+    extractText: (data) => data.message?.content || '',
+  },
+  gemini: {
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemma-4-it:generateContent?key=YOUR_GEMINI_KEY',
+    model: 'gemma-4-it',
+    headers: { 'Content-Type': 'application/json' },
+    buildBody: (sys, msgs, maxTok) => JSON.stringify({
+      systemInstruction: { parts: [{ text: sys }] },
+      contents: msgs.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+      generationConfig: { maxOutputTokens: maxTok, temperature: 0.7 }
+    }),
+    extractText: (data) => data.candidates?.[0]?.content?.parts?.[0]?.text || '',
+  }
+};
+
+const BACKEND = BACKENDS[MODE];
+
+// Универсальный вызов API
+async function callLLM(systemPrompt, messages, maxTokens = 150) {
+  const res = await fetch(BACKEND.url, {
+    method: 'POST',
+    headers: BACKEND.headers,
+    body: BACKEND.buildBody(systemPrompt, messages, maxTokens)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return BACKEND.extractText(data);
+}
+const SKEY  = 'lingua_v2';
+
+// ── MISSIONS ──────────────────────────────────────────
+const MISSIONS = [
+  { id:'airport', icon:'✈️', title:'Аэропорт Хитроу', level:'A2', unlock:null,
+    goal:'Зарегистрироваться, пройти паспортный контроль, найти багаж',
+    steps:[
+      { id:'checkin', title:'Стойка регистрации', loc:'Heathrow · Terminal 5 · Check-in',
+        npc:{name:'DAVID',av:'✈',role:'check-in agent'},
+        goal_en:'Check in for flight BA271, request window seat',
+        goal_ru:'Зарегистрируйся на рейс и попроси место у окна',
+        opening:"Good morning. Passport and booking reference, please.",
+        vocab:["I'd like to check in","window seat","hand luggage"],
+        success:['check','window','seat','passport','booking'],
+        esc:[{t:3,ev:'Bag overweight',inj:'Bag is 4kg over 23kg limit. Ask professionally about £60 fee.'},{t:6,ev:'System slow',inj:'Computer is slow. Ask to wait, make brief small talk.'}],
+        sys:`You are David, British Airways check-in agent at Heathrow T5. Professional, efficient, slightly tired from early shift. RULES: NEVER break character. React to errors naturally — "Sorry?" or "I didn't quite catch that." 1-3 short sentences. Progress: documents → seat → boarding pass. Complications if user does well: overweight bag, full economy, gate change.`
+      },
+      { id:'passport', title:'Паспортный контроль', loc:'Heathrow · Passport Control',
+        npc:{name:'OFFICER CHEN',av:'👮',role:'border officer'},
+        goal_en:'Answer questions about trip purpose and duration',
+        goal_ru:'Ответь на вопросы о цели и длительности визита',
+        opening:"Next. Passport. Purpose of visit?",
+        vocab:["I'm here for","for two weeks","I'll be staying","business trip"],
+        success:['visit','purpose','staying','weeks','hotel','business','tourism'],
+        esc:[{t:3,ev:'Suspicious',inj:'Be slightly suspicious. Ask where they will stay and for address.'},{t:5,ev:'Secondary check',inj:'Ask to step aside for secondary screening. Firm but polite.'}],
+        sys:`You are Officer Chen, UK Border Force. Serious, procedural, not unkind. RULES: NEVER break character. Short direct questions. React to hesitation with firmer follow-up. 1-2 sentences only. Establish: purpose, duration, accommodation.`
+      },
+      { id:'lostbag', title:'Потерянный багаж', loc:'Heathrow · Baggage Claim · Lost & Found',
+        npc:{name:'SARAH',av:'💼',role:'baggage agent'},
+        goal_en:'Report lost suitcase, describe it, get reference number',
+        goal_ru:'Сообщи о потере чемодана и получи номер заявки',
+        opening:"Hi, how can I help? Bag didn't arrive?",
+        vocab:["I can't find my bag","large blue suitcase","reference number"],
+        success:['bag','suitcase','lost','missing','reference','blue'],
+        esc:[{t:3,ev:'System crash',inj:'Computer keeps crashing. Apologize, ask to describe bag again.'},{t:6,ev:'Similar bag found',inj:'Found similar bag but it is locked. Ask to verify contents.'}],
+        sys:`You are Sarah, Heathrow baggage services. Empathetic but 6 people in queue behind this passenger. RULES: NEVER break character. Genuine concern, mild time pressure. Ask for: bag description, color, size, brand, flight number, contact. "Can you describe that again?" if unclear. 1-3 sentences.`
+      }
+    ]
+  },
+  { id:'cafe', icon:'☕', title:'Кафе в Лондоне', level:'A2', unlock:null,
+    goal:'Заказать кофе, выяснить WiFi, разобраться с неправильным заказом',
+    steps:[
+      { id:'order', title:'Заказ в кафе', loc:'Oxford Street Café · London · 8:47 AM',
+        npc:{name:'EMMA',av:'☕',role:'barista'},
+        goal_en:'Order large oat latte and croissant, ask for WiFi password',
+        goal_ru:'Закажи большой латте на овсяном молоке и круассан, спроси WiFi',
+        opening:"Hi! What can I get you? We've got a new oat milk blend today.",
+        vocab:["Could I have","I'd like","oat milk","WiFi password"],
+        success:['latte','coffee','oat','wifi','password','croissant'],
+        esc:[{t:3,ev:'Rush hour',inj:'Queue growing. Be slightly impatient. Ask to decide quickly.'},{t:5,ev:'Wrong order',inj:'Made regular milk latte by mistake. Apologize, ask to confirm.'}],
+        sys:`You are Emma, barista at busy London café. Friendly but fast — morning rush. RULES: NEVER break character. "Sorry, what was that?" if unclear. 1-2 sentences. Natural British English. If user does well: ask size? milk? eat in or take away?`
+      }
+    ]
+  },
+  { id:'interview', icon:'💼', title:'Собеседование', level:'B1', unlock:'cafe',
+    goal:'Представиться, рассказать об опыте, ответить на сложные вопросы',
+    steps:[
+      { id:'intro', title:'HR интервью', loc:'London Startup · Video Call · HR Interview',
+        npc:{name:'SARAH HR',av:'👩‍💻',role:'HR manager'},
+        goal_en:'Introduce yourself convincingly and describe key skills',
+        goal_ru:'Представься убедительно и расскажи о ключевых навыках',
+        opening:"Hi! Thanks for joining. Tell me about yourself — what brings you to us?",
+        vocab:["I have experience in","my key strength is","in my previous role"],
+        success:['experience','previous','role','strength','worked','skills'],
+        esc:[{t:4,ev:'Deep dive',inj:'Ask for specific example of a challenge they solved. Push for details.'},{t:7,ev:'Salary',inj:'Bring up salary naturally. What range are they expecting?'}],
+        sys:`You are Sarah, HR manager at London tech startup. Warm but evaluating every word. RULES: NEVER break character. Probe vague answers: "Could you be more specific?" Real interview pacing. 2-3 sentences.`
+      }
+    ]
+  },
+  { id:'doctor', icon:'🏥', title:'Врач NHS', level:'B1', unlock:'cafe',
+    goal:'Точно описать симптомы и получить направление к специалисту',
+    steps:[
+      { id:'symptoms', title:'Приём у врача', loc:'NHS Clinic · London · GP Appointment',
+        npc:{name:'DR. PATEL',av:'🩺',role:'GP'},
+        goal_en:'Describe headaches precisely and request specialist referral',
+        goal_ru:'Точно опиши головные боли и попроси направление',
+        opening:"Good afternoon. What brings you in today?",
+        vocab:["I've been having","it started","it hurts when","I was wondering if"],
+        success:['pain','head','hurts','started','week','referral','feeling'],
+        esc:[{t:3,ev:'More detail',inj:'Need precise info. Ask: where exactly, sharp or dull, when does it start?'},{t:6,ev:'Prescription',inj:'Prescribe ibuprofen. Explain: twice daily with food for 5 days. Ask about allergies.'}],
+        sys:`You are Dr. Patel, NHS GP. Calm, efficient, professional. 10-minute appointment. RULES: NEVER break character. Ask precise medical follow-ups. "Can you be more specific?" 2-3 sentences. Progress toward diagnosis or referral.`
+      }
+    ]
+  },
+  { id:'police', icon:'👮', title:'Полицейский участок', level:'B2', unlock:'interview',
+    goal:'Сообщить о краже, дать точные показания, получить номер дела',
+    steps:[
+      { id:'report', title:'Заявление о краже', loc:'Metropolitan Police · London · Front Desk',
+        npc:{name:'PC WILSON',av:'🚔',role:'police officer'},
+        goal_en:'Report stolen bag, give precise statement, get crime reference number',
+        goal_ru:'Сообщи о краже и получи номер дела',
+        opening:"Good afternoon. How can I help you today?",
+        vocab:["I'd like to report","it happened at","approximately","crime reference number"],
+        success:['stolen','report','happened','reference','bag','theft'],
+        esc:[{t:4,ev:'Precise statement',inj:'Need exact time, location, suspect description for the official record.'},{t:7,ev:'Witness check',inj:'Ask: any witnesses? CCTV? Did they get a good look at the suspect?'}],
+        sys:`You are PC Wilson, Metropolitan Police. Formal, procedural, not unkind. RULES: NEVER break character. Push for precision: "I need exact times for the record." 2-3 sentences. Guide toward: incident details → description → crime reference number.`
+      }
+    ]
+  }
+];
+
+// ── STATE ──────────────────────────────────────────────
+let prog = loadProg();
+let mission=null, stepIdx=0, msgs=[], userMsgs=[], turn=0;
+let thinking=false, done=false;
+let timerIv=null, timerSec=8;
+let recog=null, listening=false;
+const synth = window.speechSynthesis;
+
+function loadProg(){ try{return JSON.parse(localStorage.getItem(SKEY))||mkP();}catch{return mkP();} }
+function mkP(){return{score:0,completed:[],streak:{count:0,last:null},phrases:[],mistakes:[]};}
+function saveProg(){try{localStorage.setItem(SKEY,JSON.stringify(prog));}catch{}}
+function getLevel(s){return([{c:'A1',m:0},{c:'A2',m:100},{c:'B1',m:300},{c:'B2',m:700},{c:'C1',m:1500}]).filter(l=>s>=l.m).pop()||{c:'A1'};}
+
+function show(id){
+  ['screen-select','screen-brief','screen-scene','screen-feedback'].forEach(s=>document.getElementById(s).classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// ── BOOT ──────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  initSpeech();
+  setTimeout(()=>{
+    document.getElementById('loading').classList.add('out');
+    setTimeout(()=>document.getElementById('loading').remove(),600);
+    renderSelect(); show('screen-select');
+  },1400);
+});
+
+// ── SELECT ────────────────────────────────────────────
+function renderSelect(){
+  const completed=prog.completed||[];
+  document.getElementById('stScore').textContent=prog.score||0;
+  document.getElementById('stLevel').textContent=getLevel(prog.score||0).c;
+  document.getElementById('stStreak').textContent=prog.streak?.count||0;
+  const lvCls={A2:'tag-a2',B1:'tag-b1',B2:'tag-b2'};
+  document.getElementById('missionsGrid').innerHTML=MISSIONS.map(m=>{
+    const done=completed.includes(m.id);
+    const locked=m.unlock&&!completed.includes(m.unlock);
+    const steps=m.steps.length;
+    return `<div class="mission-card${locked?' locked':''}" ${locked?'':'onclick="selectMission(\'' + m.id + '\')"'}>
+      ${locked?'<div class="mc-lock">🔒</div>':''}
+      ${done?'<div class="mc-done">DONE</div>':''}
+      <div class="mc-top">
+        <div class="mc-icon">${m.icon}</div>
+        <div class="mc-tags">
+          <span class="mc-tag ${lvCls[m.level]||'tag-a2'}">${m.level}</span>
+          ${steps>1?`<span class="mc-tag tag-chain">${steps} сцены</span>`:''}
+          ${done?'<span class="mc-tag tag-done">✓</span>':''}
+        </div>
+      </div>
+      <div class="mc-title">${m.title}</div>
+      <div class="mc-loc">${m.steps[0].loc.split('·')[0].trim()}</div>
+      <div class="mc-goal">${m.goal}</div>
+      <div class="mc-footer">
+        <span class="mc-steps">${steps} микросцен${steps>1?'ы':''}</span>
+        <span class="mc-mins">~${steps*5} мин</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectMission(id){
+  mission=MISSIONS.find(m=>m.id===id);
+  stepIdx=0;
+  showBrief();
+}
+
+// ── BRIEFING ──────────────────────────────────────────
+function showBrief(){
+  const s=mission.steps[stepIdx];
+  document.getElementById('briefDots').innerHTML=mission.steps.map((_,i)=>
+    `<div class="bd ${i<stepIdx?'done':i===stepIdx?'active':''}"></div>`).join('');
+  document.getElementById('briefTitle').textContent=`${mission.icon} ${s.title}`;
+  document.getElementById('briefLoc').textContent=s.loc;
+  document.getElementById('briefBlocks').innerHTML=`
+    <div class="bb"><div class="bb-lbl">ЗАДАЧА</div><div class="bb-val">${s.goal_ru}</div></div>
+    <div class="bb"><div class="bb-lbl">АГЕНТ</div><div class="bb-val">${s.npc.av} <strong>${s.npc.name}</strong> — ${s.npc.role}</div></div>
+    <div class="bb"><div class="bb-lbl">СЛОВАРЬ</div><div class="bb-val">${s.vocab.slice(0,3).map(v=>`"${v}"`).join(' · ')}</div></div>`;
+  document.getElementById('briefBtn').onclick=startStep;
+  show('screen-brief');
+}
+
+// ── SCENE ─────────────────────────────────────────────
+function startStep(){
+  const s=mission.steps[stepIdx];
+  msgs=[{role:'assistant',content:s.opening}];
+  userMsgs=[]; turn=0; thinking=false; done=false;
+  document.getElementById('shLoc').textContent=s.loc;
+  document.getElementById('shStep').textContent=`ШАГ ${stepIdx+1}/${mission.steps.length}`;
+  document.getElementById('npcAv').textContent=s.npc.av;
+  document.getElementById('npcName').textContent=s.npc.name;
+  setNPC(s.opening,false);
+  document.getElementById('transcript').innerHTML='';
+  document.getElementById('hintTxt').textContent='Нажми 🎤 и говори по-английски';
+  document.getElementById('txtInp').disabled=false;
+  addBubble('npc',s.npc.av[0]||'N',s.opening);
+  show('screen-scene');
+  speak(s.opening,()=>startTimer());
+}
+
+// ── TTS ───────────────────────────────────────────────
+function speak(text,cb){
+  synth.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  const isRu = (LANG === 'ru');
+  u.lang = isRu ? 'ru-RU' : 'en-GB';
+  u.rate=0.92; u.pitch=1;
+  const vs=synth.getVoices();
+  let v;
+  if (isRu) {
+    v = vs.find(x => x.lang === 'ru-RU') || vs.find(x => x.lang.startsWith('ru'));
+  } else {
+    v = vs.find(x=>x.lang==='en-GB'&&/daniel/i.test(x.name))||vs.find(x=>x.lang==='en-GB')||vs.find(x=>x.lang.startsWith('en'));
+  }
+  if(v) u.voice=v;
+  u.onstart=()=>document.getElementById('npcWrap').classList.add('speaking');
+  u.onend=()=>{ document.getElementById('npcWrap').classList.remove('speaking'); if(cb)cb(); };
+  synth.speak(u);
+}
+
+// ── STT ───────────────────────────────────────────────
+function initSpeech(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return;
+  recog=new SR();
+  recog.lang = (LANG === 'ru') ? 'ru-RU' : 'en-US';
+  recog.continuous=false; recog.interimResults=false;
+  recog.onresult=e=>{ const t=e.results[0][0].transcript.trim(); if(t)process(t); };
+  recog.onerror=()=>stopListen();
+  recog.onend=()=>stopListen();
+}
+
+function toggleMic(){
+  if(listening){stopListen();return;}
+  startListen();
+}
+function startListen(){
+  if(!recog||thinking||done)return;
+  stopTimer(); synth.cancel();
+  listening=true;
+  document.getElementById('micBtn').className='mic-btn on';
+  document.getElementById('hintTxt').textContent='🔴 Слушаю...';
+  try{recog.start();}catch{stopListen();}
+}
+function stopListen(){
+  listening=false;
+  document.getElementById('micBtn').className='mic-btn';
+  try{recog.stop();}catch{}
+}
+
+// ── TIMER ─────────────────────────────────────────────
+function startTimer(){
+  stopTimer(); timerSec=8;
+  const f=document.getElementById('timerFill');
+  f.style.width='100%'; f.classList.remove('hot');
+  timerIv=setInterval(()=>{
+    timerSec-=0.1;
+    const p=Math.max(0,timerSec/8*100);
+    f.style.width=p+'%';
+    if(timerSec<=3)f.classList.add('hot');
+    if(timerSec<=0){ stopTimer(); if(!thinking&&!done&&!listening)timeoutReact(); }
+  },100);
+}
+function stopTimer(){
+  if(timerIv){clearInterval(timerIv);timerIv=null;}
+  const f=document.getElementById('timerFill');
+  if(f){f.style.width='100%';f.classList.remove('hot');}
+}
+async function timeoutReact(){
+  const s=mission.steps[stepIdx];
+  const rs=["...Are you still there?","Take your time — but people are waiting.","Sorry, I didn't catch that.","Whenever you're ready."];
+  const r=rs[Math.floor(Math.random()*rs.length)];
+  setNPC(r,false);
+  addBubble('npc',s.npc.av[0]||'N',r);
+  msgs.push({role:'assistant',content:r});
+  speak(r,()=>startTimer());
+}
+
+// ── INPUT ─────────────────────────────────────────────
+function sendText(){
+  const inp=document.getElementById('txtInp');
+  const t=inp.value.trim(); if(!t)return;
+  inp.value=''; process(t);
+}
+
+async function process(text){
+  if(thinking||done)return;
+  stopListen(); stopTimer();
+  turn++; msgs.push({role:'user',content:text}); userMsgs.push(text);
+  addBubble('user','YO',text);
+  const s=mission.steps[stepIdx];
+  const esc=s.esc?.find(e=>e.t===turn);
+  if(esc){ const b=document.createElement('div'); b.className='esc-flag'; b.textContent='⚡ '+esc.ev.toUpperCase(); document.getElementById('transcript').appendChild(b); document.getElementById('transcript').scrollTop=9999; }
+  thinking=true;
+  setNPC('...',true);
+  document.getElementById('micBtn').className='mic-btn off';
+  document.getElementById('txtInp').disabled=true;
+
+  // ── ЗАТЫЧКА: пока модель думает, NPC что-то бормочет ──
+  let fillerSpoken = false;
+  if (USE_FILLERS) {
+    const pool = FILLERS[LANG] || FILLERS.en;
+    const filler = pool[Math.floor(Math.random()*pool.length)];
+    // не блокируем — просто запускаем TTS параллельно
+    try {
+      const fu = new SpeechSynthesisUtterance(filler);
+      fu.lang = (LANG === 'ru') ? 'ru-RU' : 'en-GB';
+      fu.rate = 0.95; fu.pitch = 1;
+      fu.onstart = () => { fillerSpoken = true; document.getElementById('npcWrap').classList.add('speaking'); };
+      fu.onend = () => document.getElementById('npcWrap').classList.remove('speaking');
+      synth.speak(fu);
+    } catch(_){}
+  }
+
+  try{
+    let sys=s.sys;
+    if(esc)sys+=`\n\n[NOW: ${esc.inj}]`;
+    const reply=await callLLM(sys,msgs,150)||'...';
+    // если затычка ещё говорит — даём ей закончиться, потом перебиваем реальным ответом
+    if (fillerSpoken) synth.cancel();
+    msgs.push({role:'assistant',content:reply});
+    setNPC(reply,false);
+    addBubble('npc',s.npc.av[0]||'N',reply);
+    speak(reply,()=>{
+      thinking=false;
+      document.getElementById('micBtn').className='mic-btn';
+      document.getElementById('txtInp').disabled=false;
+      const all=userMsgs.join(' ').toLowerCase();
+      const hits=s.success.filter(p=>all.includes(p));
+      if(hits.length>=2&&turn>=3){setTimeout(advance,500);return;}
+      startTimer();
+    });
+  }catch(e){
+    const er='[API error: '+e.message+']';
+    setNPC(er,false); addBubble('npc','!',er);
+    thinking=false;
+    document.getElementById('micBtn').className='mic-btn';
+    document.getElementById('txtInp').disabled=false;
+    startTimer();
+  }
+}
+
+function setNPC(t,dim){
+  const b=document.getElementById('npcBubble');
+  b.textContent=t; b.className='npc-bubble'+(dim?' dim':'');
+}
+function addBubble(type,av,text){
+  const w=document.getElementById('transcript');
+  const d=document.createElement('div');
+  d.className='tr-msg '+type;
+  d.innerHTML=`<div class="tr-av">${av}</div><div class="tr-text">${text}</div>`;
+  w.appendChild(d); w.scrollTop=9999;
+}
+
+async function getHint(){
+  const s=mission.steps[stepIdx];
+  const btn=document.querySelector('.hint-btn');
+  btn.textContent='...'; btn.disabled=true;
+  try{
+    const ctx=msgs.slice(-4).map(m=>m.role+': '+m.content).join('\n');
+    const hintMsg=[{role:'user',content:`English coach. ONE hint in Russian, 1 sentence max 12 words. Context:\n${ctx}\nVocab: ${s.vocab.join(', ')}. Start: "💡"`}];
+    const hint=await callLLM('You are a discreet English coach. Give one short hint in Russian.',hintMsg,60);
+    document.getElementById('hintTxt').textContent=hint||'💡 Попробуй: "'+s.vocab[0]+'"';
+  }catch{document.getElementById('hintTxt').textContent='💡 Попробуй: "'+s.vocab[0]+'"';}
+  btn.textContent='подсказка'; btn.disabled=false;
+}
+
+// ── ADVANCE / END ─────────────────────────────────────
+function advance(){
+  stopTimer(); synth.cancel();
+  if(stepIdx+1<mission.steps.length){ stepIdx++; showBrief(); }
+  else endScene();
+}
+function endScene(){
+  if(done)return; done=true;
+  stopTimer(); synth.cancel();
+  const score=Math.max(20,Math.min(100,30+turn*5));
+  if(!prog.completed.includes(mission.id))prog.completed.push(mission.id);
+  prog.score=(prog.score||0)+score;
+  const today=new Date().toDateString();
+  if(prog.streak.last!==today){
+    const yd=new Date(Date.now()-86400000).toDateString();
+    prog.streak.count=prog.streak.last===yd?prog.streak.count+1:1;
+    prog.streak.last=today;
+  }
+  saveProg();
+  show('screen-feedback');
+  runFeedback(score);
+}
+
+// ── FEEDBACK ─────────────────────────────────────────
+async function runFeedback(score){
+  const s=mission.steps[Math.max(0,stepIdx)];
+  const dlg=msgs.map(m=>`[${m.role.toUpperCase()}]: ${m.content}`).join('\n');
+  const prompt=`Analyze this English learning conversation. Return ONLY valid JSON, no markdown.
+SCENE: ${s.title} | LEVEL: ${mission.level} | GOAL: ${s.goal_en}
+VOCAB: ${s.vocab.join(', ')}
+DIALOGUE:\n${dlg}
+JSON: {"overall_score":${score},"goal_achieved":${userMsgs.length>=3},"summary_ru":"<2 sentences Russian>","mistakes":[{"user_said":"<quote>","issue":"<Russian>","better":"<English>","why":"<Russian>"}],"good_moments":[{"user_said":"<quote>","why_good":"<Russian>"}],"phrases_to_remember":[{"phrase":"<en>","translation":"<ru>","example":"<sentence>"},{"phrase":"<en>","translation":"<ru>","example":"<sentence>"},{"phrase":"<en>","translation":"<ru>","example":"<sentence>"}],"next_mission_id":"<cafe|airport|interview|doctor|police>","next_reason":"<Russian 1 sentence>"}
+Find 2-4 real mistakes in USER turns only.`;
+  try{
+    const raw=await callLLM('You are an English coach. Return only valid JSON.',
+      [{role:'user',content:prompt}], 1400);
+    const r=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    for(const p of r.phrases_to_remember||[])
+      if(!prog.phrases.find(x=>x.phrase===p.phrase))prog.phrases.push({...p,added_at:Date.now(),rc:0});
+    prog.mistakes=[...(r.mistakes||[]),...(prog.mistakes||[])].slice(0,50);
+    saveProg();
+    renderFB(r,score,s);
+  }catch(e){ renderFBfall(score,s,e.message); }
+}
+
+function sCol(s){return s>=85?'var(--green)':s>=65?'var(--blue)':s>=45?'var(--accent)':'var(--red)';}
+function sLbl(s){return s>=85?'ОТЛИЧНО':s>=65?'ХОРОШО':s>=45?'НЕПЛОХО':'НУЖНА ПРАКТИКА';}
+
+function renderFB(r,score,s){
+  const col=sCol(r.overall_score||score);
+  const next=MISSIONS.find(m=>m.id===r.next_mission_id)||MISSIONS[0];
+  const phrases=(r.phrases_to_remember||[]).slice(0,3).map(p=>`
+    <div class="ph"><div class="ph-en">${p.phrase}</div><div class="ph-ru">${p.translation}</div><div class="ph-ex">${p.example}</div></div>`).join('');
+  document.getElementById('fbContent').innerHTML=`
+    <div class="fb-hdr">
+      <div><div class="fb-title">РАЗБОР</div><div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-top:3px">${mission.icon} ${s.title}</div></div>
+      <div><div class="fb-score" style="color:${col}">${r.overall_score||score}</div><div class="fb-slbl">${sLbl(r.overall_score||score)}</div></div>
+    </div>
+    <div class="fb-sum"><div class="gpill ${r.goal_achieved?'y':'n'}">${r.goal_achieved?'✓ ЦЕЛЬ ДОСТИГНУТА':'✗ ЦЕЛЬ НЕ ДОСТИГНУТА'}</div><br>${r.summary_ru||''}</div>
+    ${(r.mistakes||[]).length?`<div class="fb-sec">ОШИБКИ · ${r.mistakes.length}</div>${r.mistakes.map(m=>`<div class="mk"><div class="mk-said">Ты сказал: <em>"${m.user_said}"</em></div><div class="mk-issue">${m.issue}</div><div class="mk-better">✓ "${m.better}"</div><div class="mk-why">${m.why}</div></div>`).join('')}`:''}
+    ${(r.good_moments||[]).length?`<div class="fb-sec">УДАЧНО</div>${r.good_moments.map(g=>`<div class="gd"><div class="gd-said">"${g.user_said}"</div><div class="gd-why">${g.why_good}</div></div>`).join('')}`:''}
+    <div class="fb-sec">ЗАПОМНИ</div><div class="ph-grid">${phrases}</div>
+    <div class="next-box">
+      <div><div class="nb-lbl">СЛЕДУЮЩАЯ МИССИЯ</div><div class="nb-ttl">${next.icon} ${next.title}</div><div class="nb-reason">${r.next_reason||''}</div></div>
+      <button class="nb-btn" onclick="selectMission('${next.id}')">→ ВПЕРЁД</button>
+    </div>
+    <div class="fb-acts">
+      <button class="fb-act" onclick="selectMission('${mission.id}')">↺ ещё раз</button>
+      <button class="fb-act" onclick="goSel()">все миссии</button>
+    </div>`;
+}
+function renderFBfall(score,s,err){
+  document.getElementById('fbContent').innerHTML=`
+    <div class="fb-hdr"><div><div class="fb-title">РАЗБОР</div></div><div><div class="fb-score" style="color:var(--blue)">${score}</div><div class="fb-slbl">ЗАВЕРШЕНО</div></div></div>
+    <div class="fb-sum">Миссия завершена. ${err?'Ошибка анализа: '+err:''}</div>
+    <div class="fb-acts">
+      <button class="fb-act" onclick="selectMission('${mission.id}')">↺ ещё раз</button>
+      <button class="fb-act" onclick="goSel()">все миссии</button>
+    </div>`;
+}
+function goSel(){ renderSelect(); show('screen-select'); }
+</script>
+</body>
+</html>
